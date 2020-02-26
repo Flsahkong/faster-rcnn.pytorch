@@ -31,7 +31,6 @@ class _ProposalTargetLayer(nn.Module):
         self.BBOX_INSIDE_WEIGHTS = torch.FloatTensor(cfg.TRAIN.BBOX_INSIDE_WEIGHTS)
 
     def forward(self, all_rois, gt_boxes, num_boxes):
-
         self.BBOX_NORMALIZE_MEANS = self.BBOX_NORMALIZE_MEANS.type_as(gt_boxes)
         self.BBOX_NORMALIZE_STDS = self.BBOX_NORMALIZE_STDS.type_as(gt_boxes)
         self.BBOX_INSIDE_WEIGHTS = self.BBOX_INSIDE_WEIGHTS.type_as(gt_boxes)
@@ -40,6 +39,8 @@ class _ProposalTargetLayer(nn.Module):
         gt_boxes_append[:,:,1:5] = gt_boxes[:,:,:4]
 
         # Include ground-truth boxes in the set of candidate rois
+        # cat是进行链接的函数,在dim=1的维度上进行连接,
+        # 连接之前,all-rois为[1,2000,5],之后为[1,2020,5]
         all_rois = torch.cat([all_rois, gt_boxes_append], 1)
 
         num_images = 1
@@ -52,7 +53,8 @@ class _ProposalTargetLayer(nn.Module):
             rois_per_image, self._num_classes)
 
         bbox_outside_weights = (bbox_inside_weights > 0).float()
-
+        # 这里应该是和anchor_target差不多一样的.
+        # 所有的大小都是fg_rois_per_image=256,都是[batch,256,5或4]
         return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
     def backward(self, top, propagate_down, bottom):

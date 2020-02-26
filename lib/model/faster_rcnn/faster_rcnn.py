@@ -42,6 +42,7 @@ class _fasterRCNN(nn.Module):
         # self.RCNN_roi_pool = _RoIPooling(cfg.POOLING_SIZE, cfg.POOLING_SIZE, 1.0/16.0)
         # self.RCNN_roi_align = RoIAlignAvg(cfg.POOLING_SIZE, cfg.POOLING_SIZE, 1.0/16.0)
 
+        # 输入进去的cfg.POOLING_SIZE的大小是7
         self.RCNN_roi_pool = ROIPool((cfg.POOLING_SIZE, cfg.POOLING_SIZE), 1.0/16.0)
         self.RCNN_roi_align = ROIAlign((cfg.POOLING_SIZE, cfg.POOLING_SIZE), 1.0/16.0, 0)
 
@@ -65,9 +66,13 @@ class _fasterRCNN(nn.Module):
 
         # if it is training phrase, then use ground trubut bboxes for refining
         if self.training:
+
             roi_data = self.RCNN_proposal_target(rois, gt_boxes, num_boxes)
+            # 所有的大小都是fg_rois_per_image=256,都是[batch,256,5或4]
+            # rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
             rois, rois_label, rois_target, rois_inside_ws, rois_outside_ws = roi_data
 
+            # 注意! 从这之后,所有的结果就开始了
             rois_label = Variable(rois_label.view(-1).long())
             rois_target = Variable(rois_target.view(-1, rois_target.size(2)))
             rois_inside_ws = Variable(rois_inside_ws.view(-1, rois_inside_ws.size(2)))
@@ -84,15 +89,20 @@ class _fasterRCNN(nn.Module):
         rois = Variable(rois)
         # do roi pooling based on predicted rois
 
+        import pdb
+        pdb.set_trace()
+
         if cfg.POOLING_MODE == 'align':
             pooled_feat = self.RCNN_roi_align(base_feat, rois.view(-1, 5))
         elif cfg.POOLING_MODE == 'pool':
             pooled_feat = self.RCNN_roi_pool(base_feat, rois.view(-1,5))
 
+
+        # 这个_head_to_tail函数在vgg16.py文件里面,在这个步骤中,经过了两层线性层,输出的pooled_feat就可以直接进行分类和回归了
         # feed pooled features to top model
         pooled_feat = self._head_to_tail(pooled_feat)
 
-        # todo li 有一个问题是之类的代码在直行只有没有进行线性层直接就bbox了
+        # 这个RCNN_bbox_pred也在vgg16文件中,计算出预测的框
         # compute bbox offset
         bbox_pred = self.RCNN_bbox_pred(pooled_feat)
         if self.training and not self.class_agnostic:
@@ -101,8 +111,10 @@ class _fasterRCNN(nn.Module):
             bbox_pred_select = torch.gather(bbox_pred_view, 1, rois_label.view(rois_label.size(0), 1, 1).expand(rois_label.size(0), 1, 4))
             bbox_pred = bbox_pred_select.squeeze(1)
 
+        # RCNN_cls_score也在vgg16中,经过一个线性层,输出20个类别的分数
         # compute object classification probability
         cls_score = self.RCNN_cls_score(pooled_feat)
+        # 经过softmax输出每个类别的概率
         cls_prob = F.softmax(cls_score, 1)
 
         RCNN_loss_cls = 0
@@ -132,6 +144,7 @@ class _fasterRCNN(nn.Module):
                 m.weight.data.normal_(mean, stddev)
                 m.bias.data.zero_()
 
+        # 进行几个卷积层的数据初始化,高斯分布,均值和方差
         normal_init(self.RCNN_rpn.RPN_Conv, 0, 0.01, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_rpn.RPN_cls_score, 0, 0.01, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_rpn.RPN_bbox_pred, 0, 0.01, cfg.TRAIN.TRUNCATED)

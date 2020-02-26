@@ -89,21 +89,19 @@ class _RPN(nn.Module):
         # 经过上面的注释代码表明,softmax输出的每个anchor的值为0-1之间,并且他们的和并不是1,为什么不是1?
         # 经过测试发现,不能简单地,使用view来进行.view 和reshape得到的结果是一样的,想交换维度,需要用到torch.transpose
 
-        # 经过1*1的层,然后结果为4*9,todo li 这个4具体指的是什么
+        # 经过1*1的层,然后结果为4*9,这里的4表示的是预测的tx,ty,tw,th
         rpn_bbox_pred = self.RPN_bbox_pred(rpn_conv1)
 
         # proposal layer
         cfg_key = 'TRAIN' if self.training else 'TEST'
 
-        # rois的大小为[1,2000,5]坐标在三维的最后四个,并且坐标点是左上和右下角
+        # rois的大小为[batch,2000,5]坐标在三维的最后四个,并且坐标点是左上和右下角
         rois = self.RPN_proposal((rpn_cls_prob.data, rpn_bbox_pred.data,
                                  im_info, cfg_key))
 
         self.rpn_loss_cls = 0
         self.rpn_loss_box = 0
 
-        import pdb
-        pdb.set_trace()
 
         # generating training labels and build the rpn loss
         if self.training:
@@ -112,15 +110,21 @@ class _RPN(nn.Module):
             # 这个rpn-data是在计算loss的时候用上了
             # 在这里使用的是rpn_cls_score,这个是第一条线1*1卷积的输出,输出为18,没有进行softmax
             rpn_data = self.RPN_anchor_target((rpn_cls_score.data, gt_boxes, im_info, num_boxes))
+            # 输出的rpn_data包含了(labels,bbox_targets,bbox_inside_weights,bbox_outside_weights)
 
             # compute classification loss
             rpn_cls_score = rpn_cls_score_reshape.permute(0, 2, 3, 1).contiguous().view(batch_size, -1, 2)
             rpn_label = rpn_data[0].view(batch_size, -1)
 
+            # 注意,这里将几个batch柔和到一块去了
+
+            # torch.ne是比较input和other,如果不相等,就赋值1,如果相等就赋值0
+            # 这个操作相当于筛选出来无关的labels,保留前景和背景
             rpn_keep = Variable(rpn_label.view(-1).ne(-1).nonzero().view(-1))
             rpn_cls_score = torch.index_select(rpn_cls_score.view(-1,2), 0, rpn_keep)
             rpn_label = torch.index_select(rpn_label.view(-1), 0, rpn_keep.data)
             rpn_label = Variable(rpn_label.long())
+            # 让scores去逼近labels从而得到损失
             self.rpn_loss_cls = F.cross_entropy(rpn_cls_score, rpn_label)
             fg_cnt = torch.sum(rpn_label.data.ne(0))
 

@@ -133,6 +133,7 @@ class vgg16(_fasterRCNN):
     def _head_to_tail(self, pool5):
 
         pool5_flat = pool5.view(pool5.size(0), -1)
+        # 在这里调用了vgg.classifier,先经过了两个线性层,输出特征
         fc7 = self.RCNN_top(pool5_flat)
 
         return fc7

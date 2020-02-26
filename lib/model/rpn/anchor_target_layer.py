@@ -127,7 +127,6 @@ class _AnchorTargetLayer(nn.Module):
             # IOU小于0.3的为negative , #RPN_NEGATIVE_OVERLAP=0.3的意思是 IOU < thresh: negative example
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
-        pdb.set_trace()
         # 如果gt box最大的anchor的IOU是0,就是说没有任何一个anchor与gt box相邻,改变他的值为1e-5(0.00001),这应该是为了下面
         # 进行对比的时候,不让0和0相同
         gt_max_overlaps[gt_max_overlaps==0] = 1e-5
