@@ -89,9 +89,6 @@ class _fasterRCNN(nn.Module):
         rois = Variable(rois)
         # do roi pooling based on predicted rois
 
-        import pdb
-        pdb.set_trace()
-
         if cfg.POOLING_MODE == 'align':
             pooled_feat = self.RCNN_roi_align(base_feat, rois.view(-1, 5))
         elif cfg.POOLING_MODE == 'pool':
@@ -122,9 +119,12 @@ class _fasterRCNN(nn.Module):
 
         if self.training:
             # classification loss
+            # rois_label是每个rois与gt box形成的labels
+            # 从这个loss可以看出来,预测的cls_score是针对rois进行的
             RCNN_loss_cls = F.cross_entropy(cls_score, rois_label)
 
             # bounding box regression L1 loss
+            # 和上面一样,bbox也是针对rois进行的,预测的是针对每个rois的tx,ty,tw,th
             RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
 
         cls_prob = cls_prob.view(batch_size, rois.size(1), -1)

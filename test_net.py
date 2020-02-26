@@ -137,12 +137,17 @@ if __name__ == '__main__':
     print('Using config:')
     pprint.pprint(cfg)
 
+    # 和训练的时候不一样,训练的时候是true
     cfg.TRAIN.USE_FLIPPED = False
+    # 进行数据的准备，combined_roidb(args.imdb_name)是数据准备的核心部分。
+    # 返回的imdb是类pascal_voc的一个实例，后面只用到了其的一些路径，作用不大。roidb则包含了训练网络所需要的所有信息。下面看一下它的产生过程
     imdb, roidb, ratio_list, ratio_index = combined_roidb(args.imdbval_name, False)
+    # 注意这个
     imdb.competition_mode(on=True)
 
     print('{:d} roidb entries'.format(len(roidb)))
 
+    # 读取模型的数据
     input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
     if not os.path.exists(input_dir):
         raise Exception('There is no input directory for loading network from ' + input_dir)
@@ -194,11 +199,13 @@ if __name__ == '__main__':
         cfg.CUDA = True
 
     if args.cuda:
+        # 将所有的模型参数(parameters)和buffers赋值GPU
         fasterRCNN.cuda()
 
     start = time.time()
     max_per_image = 100
 
+    # vis的意思是 visualization mode
     vis = args.vis
 
     if vis:
@@ -207,6 +214,7 @@ if __name__ == '__main__':
         thresh = 0.0
 
     save_name = 'faster_rcnn_10'
+    # num_images的值是4952
     num_images = len(imdb.image_index)
     all_boxes = [[[] for _ in xrange(num_images)]
                  for _ in xrange(imdb.num_classes)]
@@ -256,8 +264,9 @@ if __name__ == '__main__':
                     box_deltas = box_deltas.view(-1, 4) * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
                                  + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
                     box_deltas = box_deltas.view(1, -1, 4 * len(imdb.classes))
-
+            # 从这里看出,faster rcnn的最后bbox预测模块,是在rois的基础上,预测的偏差值tx,ty,tw,th
             pred_boxes = bbox_transform_inv(boxes, box_deltas, 1)
+            # 这里应该是对改装过后的box进行剪裁
             pred_boxes = clip_boxes(pred_boxes, im_info.data, 1)
         else:
             # Simply repeat the boxes, once for each class
@@ -314,7 +323,7 @@ if __name__ == '__main__':
 
         if vis:
             cv2.imwrite('result.png', im2show)
-            pdb.set_trace()
+            # pdb.set_trace()
             # cv2.imshow('test', im2show)
             # cv2.waitKey(0)
 
