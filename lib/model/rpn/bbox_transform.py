@@ -75,22 +75,36 @@ def bbox_transform_batch(ex_rois, gt_rois):
     return targets
 
 def bbox_transform_inv(boxes, deltas, batch_size):
+    # boxes的大小是[1,16650,4]
+    # deltas 的大小是[1,16650,4]
+
+    # 这个boxes就是anchors,deltas是预测的
+    # widths的大小是[1,16650]
     widths = boxes[:, :, 2] - boxes[:, :, 0] + 1.0
     heights = boxes[:, :, 3] - boxes[:, :, 1] + 1.0
     ctr_x = boxes[:, :, 0] + 0.5 * widths
     ctr_y = boxes[:, :, 1] + 0.5 * heights
 
+    # 这个代码分别是取第一,第二,第三第四个元素,似乎和正常的[0]没有区别
+    # 经过输出观察,这里的这几个值都是很小的正负0.0几
+    # dx的大小是[1,16650,1]
     dx = deltas[:, :, 0::4]
     dy = deltas[:, :, 1::4]
     dw = deltas[:, :, 2::4]
     dh = deltas[:, :, 3::4]
 
+    # 根据论文上面的图片的值,bbox预测的是tx,ty,tw,th
+    # tx=(x-xa)/wa  ty=(y-ya)/ha
+    # tw=log(w/wa)  th=log(h/ha)
+    # 其中,xa,ya,wa,ha分别是anchor的中心点以及宽高,下面的代码就是根据上面的式子,反推出x,y,w,h也就是真实的预测结果
+    # 经过这个unsqueese函数之后,原本的widths变成了大小[1,16650,1]
     pred_ctr_x = dx * widths.unsqueeze(2) + ctr_x.unsqueeze(2)
     pred_ctr_y = dy * heights.unsqueeze(2) + ctr_y.unsqueeze(2)
     pred_w = torch.exp(dw) * widths.unsqueeze(2)
     pred_h = torch.exp(dh) * heights.unsqueeze(2)
 
     pred_boxes = deltas.clone()
+    # 需要返回的是左上角和右下角的坐标
     # x1
     pred_boxes[:, :, 0::4] = pred_ctr_x - 0.5 * pred_w
     # y1
@@ -123,7 +137,9 @@ def clip_boxes_batch(boxes, im_shape, batch_size):
     return boxes
 
 def clip_boxes(boxes, im_shape, batch_size):
-
+    # boxes的大小是[batch-size,16650,4]
+    # im_shape的值是[[600,800,1.6]]
+    # clamp_的作用是将数值限定在一定的范围内
     for i in range(batch_size):
         boxes[i,:,0::4].clamp_(0, im_shape[i, 1]-1)
         boxes[i,:,1::4].clamp_(0, im_shape[i, 0]-1)
@@ -213,6 +229,7 @@ def bbox_overlaps_batch(anchors, gt_boxes):
         overlaps.masked_fill_(anchors_area_zero.view(batch_size, N, 1).expand(batch_size, N, K), -1)
 
     elif anchors.dim() == 3:
+        # todo li 为什么还有这种情况,anchor不是[5944,4]吗
         N = anchors.size(1)
         K = gt_boxes.size(1)
 

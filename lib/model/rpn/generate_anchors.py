@@ -48,7 +48,11 @@ def generate_anchors(base_size=16, ratios=[0.5, 1, 2],
     Generate anchor (reference) windows by enumerating aspect ratios X
     scales wrt a reference (0, 0, 15, 15) window.
     """
+    # 其中每行的4个值 [公式] 表矩形左上和右下角点坐标。根据这些点的设计情况来看,中心点的坐标是固定地(7.5,7.5)居然不是(0,0)
 
+    # 注：关于上面的anchors size，其实是根据检测图像设置的。
+    # 在python demo中，会把任意大小的输入图像reshape成800x600（即图2中的M=800，N=600）。
+    # 再回头来看anchors的大小，anchors中长宽1:2中最大为352x704，长宽2:1中最大736x384，基本是cover了800x600的各个尺度和形状。
     base_anchor = np.array([1, 1, base_size, base_size]) - 1
     ratio_anchors = _ratio_enum(base_anchor, ratios)
     anchors = np.vstack([_scale_enum(ratio_anchors[i, :], scales)
@@ -108,6 +112,7 @@ if __name__ == '__main__':
     import time
     t = time.time()
     a = generate_anchors()
+    # 其中每行的4个值 [公式] 表矩形左上和右下角点坐标,而不是中心点坐标和宽高,中心店的坐标是一致的
     print(time.time() - t)
     print(a)
     from IPython import embed; embed()

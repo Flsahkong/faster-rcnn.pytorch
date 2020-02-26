@@ -125,7 +125,7 @@ __C.TRAIN.PROPOSAL_METHOD = 'gt'
 # tall and thin or both short and wide) in order to avoid wasting computation
 # on zero-padding.
 
-# Use RPN to detect objects
+# Use RPN to detect objectsRPN_MIN_SIZE
 __C.TRAIN.HAS_RPN = True
 # IOU >= thresh: positive example
 __C.TRAIN.RPN_POSITIVE_OVERLAP = 0.7

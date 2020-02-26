@@ -35,6 +35,8 @@ def weights_normal_init(model, dev=0.01):
 
 
 def clip_gradient(model, clip_norm):
+    # 意思应该是根据现在的状况,计算出来一个gradient clipping的系数
+    # 而gradient clipping是用来解决梯度爆炸问题的
     """Computes a gradient clipping coefficient based on gradient norm."""
     totalnorm = 0
     for p in model.parameters():

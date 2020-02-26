@@ -19,10 +19,15 @@ import time
 import pdb
 from model.utils.net_utils import _smooth_l1_loss, _crop_pool_layer, _affine_grid_gen, _affine_theta
 
+# nn.module是实现自己的网络必须要继承的类，需要实现这个类的forward方法。
 class _fasterRCNN(nn.Module):
     """ faster RCNN """
+    # 这里的class_agnostic的意思是whether perform class_agnostic bbox regression，
+    # 就是说在进行bbox回归的时候，是输出一个框，还是输出n-classes个框
     def __init__(self, classes, class_agnostic):
+        # 继承这个Module类，这个super函数一定要调用
         super(_fasterRCNN, self).__init__()
+        # classes一共有21类,带上了背景
         self.classes = classes
         self.n_classes = len(classes)
         self.class_agnostic = class_agnostic
@@ -41,8 +46,12 @@ class _fasterRCNN(nn.Module):
         self.RCNN_roi_align = ROIAlign((cfg.POOLING_SIZE, cfg.POOLING_SIZE), 1.0/16.0, 0)
 
     def forward(self, im_data, im_info, gt_boxes, num_boxes):
+        # im_data的大小是[1,3,600,800],这个1其实是图片总数,在这里就是指batch的大小
         batch_size = im_data.size(0)
-
+        # todo li 这个num-box到底是个什么东西,im-info是什么东西
+        # im_info 的大小是[600,800,1.6]
+        # gt_boxes的大小是[1,20,5]
+        # num_boxes的大小是[1],数值是3
         im_info = im_info.data
         gt_boxes = gt_boxes.data
         num_boxes = num_boxes.data
@@ -50,6 +59,7 @@ class _fasterRCNN(nn.Module):
         # feed image data to base model to obtain base feature map
         base_feat = self.RCNN_base(im_data)
 
+        # rios应该是region of interest
         # feed base feature map tp RPN to obtain rois
         rois, rpn_loss_cls, rpn_loss_bbox = self.RCNN_rpn(base_feat, im_info, gt_boxes, num_boxes)
 
@@ -63,6 +73,7 @@ class _fasterRCNN(nn.Module):
             rois_inside_ws = Variable(rois_inside_ws.view(-1, rois_inside_ws.size(2)))
             rois_outside_ws = Variable(rois_outside_ws.view(-1, rois_outside_ws.size(2)))
         else:
+            # 下面这个语句在运行train的时候,没有执行这里的句子
             rois_label = None
             rois_target = None
             rois_inside_ws = None
@@ -81,6 +92,7 @@ class _fasterRCNN(nn.Module):
         # feed pooled features to top model
         pooled_feat = self._head_to_tail(pooled_feat)
 
+        # todo li 有一个问题是之类的代码在直行只有没有进行线性层直接就bbox了
         # compute bbox offset
         bbox_pred = self.RCNN_bbox_pred(pooled_feat)
         if self.training and not self.class_agnostic:
@@ -102,7 +114,6 @@ class _fasterRCNN(nn.Module):
 
             # bounding box regression L1 loss
             RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
-
 
         cls_prob = cls_prob.view(batch_size, rois.size(1), -1)
         bbox_pred = bbox_pred.view(batch_size, rois.size(1), -1)
@@ -128,5 +139,6 @@ class _fasterRCNN(nn.Module):
         normal_init(self.RCNN_bbox_pred, 0, 0.001, cfg.TRAIN.TRUNCATED)
 
     def create_architecture(self):
+        # 真神奇啊，外部的vgg16对象的self传了进来，所以可以调用子类vgg16里面的_init_modules方法
         self._init_modules()
         self._init_weights()
