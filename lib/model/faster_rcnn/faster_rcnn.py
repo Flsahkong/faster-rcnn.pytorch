@@ -102,7 +102,10 @@ class _fasterRCNN(nn.Module):
         # 这个RCNN_bbox_pred也在vgg16文件中,计算出预测的框
         # compute bbox offset
         bbox_pred = self.RCNN_bbox_pred(pooled_feat)
+        # 如果是test的话,没有经过下面这个步骤,所以test的时候网络输出的bbox_pred的大小为[batch*128,4*21]
         if self.training and not self.class_agnostic:
+            # 如果没有class_agnostic,bbox_preed的大小是[batch*128,4*21],就是对每个类别都预测了一个回归框
+            # 这里的处理是根据rois([128]里面是128个框的类别信息)选择bbox_pred里面,21个类别里面的一个
             # select the corresponding columns according to roi labels
             bbox_pred_view = bbox_pred.view(bbox_pred.size(0), int(bbox_pred.size(1) / 4), 4)
             bbox_pred_select = torch.gather(bbox_pred_view, 1, rois_label.view(rois_label.size(0), 1, 1).expand(rois_label.size(0), 1, 4))
